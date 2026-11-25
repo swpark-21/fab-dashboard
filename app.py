@@ -21,24 +21,23 @@ alarms = [
 ]
 alarms_df = pd.DataFrame(alarms)
 
-# --- Summary metrics ---
+# --- Summary metrics (overall) ---
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Total Tools", len(tools_df))
 col2.metric("Running", (tools_df["Status"] == "Running").sum())
 col3.metric("Active Alarms", len(alarms_df))
 col4.metric("Avg Availability", f"{tools_df['Availability (%)'].mean():.1f}%")
 
-# --- Tool status table + chart ---
-st.subheader("Tool Status")
-st.dataframe(tools_df, width="stretch", hide_index=True)
-
-st.subheader("Availability by Tool")
-st.bar_chart(tools_df.set_index("Tool")["Availability (%)"], width="stretch")
-
 # --- Sidebar filters ---
 st.sidebar.header("Filters")
 severity = st.sidebar.selectbox("Severity", ["All", "Critical", "Warning"])
 tool_filter = st.sidebar.selectbox("Tool", ["All Tools"] + tools_df["Tool"].tolist())
+
+# --- Apply the tool filter to BOTH tables ---
+if tool_filter == "All Tools":
+    shown_tools = tools_df
+else:
+    shown_tools = tools_df[tools_df["Tool"] == tool_filter]
 
 filtered = alarms_df.copy()
 if severity != "All":
@@ -46,23 +45,15 @@ if severity != "All":
 if tool_filter != "All Tools":
     filtered = filtered[filtered["Tool"] == tool_filter]
 
-# --- Filtered alarms ---
+# --- Tool status table (filtered) ---
+st.subheader("Tool Status")
+st.dataframe(shown_tools, width="stretch", hide_index=True)
+
+# --- Recent alarms (filtered) ---
 st.subheader("Recent Alarms")
 st.write(f"Showing {len(filtered)} of {len(alarms_df)} alarms")
 st.dataframe(filtered, width="stretch", hide_index=True)
 
-# --- Tool detail ---
-st.subheader("Tool Detail")
-selected_tool = st.selectbox("Select a tool", tools_df["Tool"].tolist())
-detail = tools_df[tools_df["Tool"] == selected_tool].iloc[0]
-tool_alarms = alarms_df[alarms_df["Tool"] == selected_tool]
-
-dcol1, dcol2, dcol3 = st.columns(3)
-dcol1.metric("Status", detail["Status"])
-dcol2.metric("Availability", f"{detail['Availability (%)']}%")
-dcol3.metric("Alarms", int(detail["Alarms"]))
-
-if len(tool_alarms) > 0:
-    st.dataframe(tool_alarms, width="stretch", hide_index=True)
-else:
-    st.write("No alarms for this tool.")
+# --- Availability chart (filtered) ---
+st.subheader("Availability by Tool")
+st.bar_chart(shown_tools.set_index("Tool")["Availability (%)"], width="stretch")
